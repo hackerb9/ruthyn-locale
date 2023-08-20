@@ -1,0 +1,107 @@
+#!/bin/bash -eu
+
+# Given the name of charmap file, output the .c file needed to create
+# a gconv module, using glibc's 8bit-generic.c.  See also cm2h..
+#
+# hackerb9 2023, LGPL 2+
+
+usage() {
+    cat<<EOF
+Usage: $(basename $0) <filename.charmap>
+
+Writes output to filename.c.
+
+Given the name of charmap file, output the .c file needed to create a
+gconv module, using glibc's 8bit-generic.c. Works with cm2h.awk, which
+creates the corresponding .h file.
+
+EOF
+}
+    
+
+main() {
+    local input="$1"
+    declare -g filename="${input%.charmap}"
+    local output="$filename.c"
+    #safety_check "$output"
+
+    declare -g CHARSET HAS_HOLES HOLES_COMMENT
+    read CHARSET < <(sed -n 's/<code_set_name> *//p' <"$input") 
+    read HAS_HOLES < <(count_codes <"$input")
+    case $HAS_HOLES in
+	0) HOLES_COMMENT="All 256 characters are defined." ;;
+	1) HOLES_COMMENT="Not all 256 characters are defined." ;;
+    esac
+    boilerplate > "$output"
+}
+
+safety_check() {
+    # If the file exists, then ask if it is okay to write it.
+    local response=""
+    if tty -s && [[ -s "$1" ]]; then
+	while [[ -z "$response" ]]; do
+	    read -n1 -p "File '$1' exists. Overwrite? [Y/n] " response
+	    echo
+	    case "$response" in
+		N|n) exit ;;
+		Y|y) break ;;
+		*) response="" ;;
+	    esac
+	done
+    fi
+}
+	    
+
+count_codes() {
+    # If the number of unique codes is exactly 256, print 0, else 1
+    local num=$(sed -rn '
+	/^%/d;
+	/^CHARMAP/,/^END CHARMAP/ s/^[^[:space:]]*[[:space:]]+.x([[:xdigit:]][[:xdigit:]]).*/\1/p
+	' | sort -u | wc -l)
+    echo $((num != 256))
+}
+
+boilerplate() {
+    cat <<EOF
+/* Conversion from and to ${CHARSET} Character Set
+   Copyright (C) 2020 Free Software Foundation, Inc.
+   This file is not yet part of the GNU C Library.
+   Contributed by b9 <hackerb9@member.fsf.org>, 2020.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <http://www.gnu.org/licenses/>.  */
+
+#include <stdint.h>
+
+#define CHARSET_NAME	"${CHARSET}//"
+#define HAS_HOLES	${HAS_HOLES}	/* ${HOLES_COMMENT} */
+
+#include "${filename}-gapstyle.h"
+#if GAPSTYLE==0
+    // Use template code from GNU glibc-2.28 to easily define the charset.
+#  include "${filename}.h"		/* Get the conversion table.  */
+#  include "8bit-generic.c"
+#else
+   // If the .h file was created with cm2h -v gapstyle=1, use this instead.
+#  define TABLES "${filename}.h"        /* Get the conversion table.  */
+#  include "8bit-gap.c"
+#endif 
+EOF
+} 
+
+
+
+if [[ $# -lt 1 ]]; then usage; exit; fi
+
+main "$@"
