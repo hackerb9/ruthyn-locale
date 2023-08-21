@@ -19,7 +19,9 @@ GCONVDIR	:= /usr/lib/$(shell gcc -dumpmachine)/gconv
 # Optionally, the module may be installed into a custom directory.
 # Tip 1: GNU libc checks the GCONV_PATH environment variable for extra modules.
 # Tip 2: The custom directory must also contain a 'gconv-modules' file.
-GCONVDIR = /usr/local/lib/gconv
+#GCONVDIR 	:= /usr/local/lib/gconv
+#GCONVDIR 	:= $(HOME)/.local/lib/gconv
+
 
 ###############################################################################
 # Pseudo-libraries
