@@ -9,7 +9,7 @@ usage() {
     cat<<EOF
 Usage: $(basename $0) <filename.charmap>
 
-Writes output to filename.c.
+Writes output to stdout.
 
 Given the name of charmap file, output the .c file needed to create a
 gconv module, using glibc's 8bit-generic.c. Works with cm2h.awk, which
@@ -22,7 +22,7 @@ EOF
 main() {
     local input="$1"
     declare -g filename="${input%.charmap}"
-    local output="$filename.c"
+    local output="${2:-/dev/stdout}"
     #safety_check "$output"
 
     declare -g CHARSET HAS_HOLES HOLES_COMMENT
@@ -87,6 +87,7 @@ boilerplate() {
 #define CHARSET_NAME	"${CHARSET}//"
 #define HAS_HOLES	${HAS_HOLES}	/* ${HOLES_COMMENT} */
 
+/* GAPSTYLE, which template code to use, is set by cm2h. */
 #include "${filename}-gapstyle.h"
 #if GAPSTYLE==0
     // Use template code from GNU glibc-2.28 to easily define the charset.
