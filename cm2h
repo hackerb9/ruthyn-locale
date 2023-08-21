@@ -143,6 +143,9 @@ function add_gapstyle_def() {
     # Write a one line file called charset-gapstyle.h to be used by charset.c.
     # when deciding whether to compile with 8bit-generic.c or 8bit-gap.c.
     # Uses global variable gapstyle.
+    #
+    # Note, this is written to a different file because Ulrich Drepper's
+    # 8bit-generic.c code is written as wacky C preprocessor macros.
     output = tolower(FILENAME);
     sub(/.charmap/, "", output);
     output = output "-gapstyle.h";
