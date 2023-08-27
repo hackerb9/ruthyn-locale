@@ -10,11 +10,31 @@
 # Hackerb9 2020-2023
 
 ###############################################################################
-# Installation paths
+# Charmap file to build a module from
+# To override, use  `make CHARMAP=foo.charmap`
 ###############################################################################
 
-# The default system gconv dir, at least on Debian boxen. (Requires root.)
-GCONVDIR	:= /usr/lib/$(shell gcc -dumpmachine)/gconv
+# The character map is the fundamental source code for this project.
+# It can be used standalone with iconv or to compile a gconv module.
+CHARMAP		= ruthyn.charmap
+
+
+###############################################################################
+# Installation paths
+# To override, use  `make GCONVDIR=~/.local/lib/gconv install`
+###############################################################################
+ifndef GCONVDIR
+  ifdef GCONV_PATH
+    # Allow user to override the installation directory by exporting GCONV_PATH.
+    GCONVDIR	:= $(firstword $(subst :, ,$(GCONV_PATH)))
+    $(warning Using environment variable GCONV_PATH to set GCONVDIR=$(GCONVDIR))
+  endif
+endif
+
+ifndef GCONVDIR
+  # The default system gconv dir, at least on Debian boxen. (Requires root.)
+  GCONVDIR	:= /usr/lib/$(shell gcc -dumpmachine)/gconv
+endif
 
 # Optionally, the module may be installed into a custom directory.
 # Tip 1: GNU libc checks the GCONV_PATH environment variable for extra modules.
@@ -61,10 +81,6 @@ GCONV_LDFLAGS  = -shared
 ###############################################################################
 # Prerequisites and targets
 ###############################################################################
-
-# The character map is the fundamental source code for this project.
-# can be used standalone with iconv or to compile a gconv module.
-CHARMAP		= ruthyn.charmap
 
 # Directory to write compiled and otherwise transformed objects.
 OBJDIR		:= build
