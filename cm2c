@@ -88,10 +88,10 @@ boilerplate() {
 #define HAS_HOLES	${HAS_HOLES}	/* ${HOLES_COMMENT} */
 
 /* GAPSTYLE, which template code to use, is set by cm2h. */
-#include "${filename}-gapstyle.h"
+#include "$(basename ${filename}-gapstyle.h)"
 #if GAPSTYLE==0
     // Use template code from GNU glibc-2.28 to easily define the charset.
-#  include "${filename}.h"		/* Get the conversion table.  */
+#  include "$(basename ${filename}.h)"		/* Get the conversion table.  */
 #  include "8bit-generic.c"
 #else
    // If the .h file was created with cm2h -v gapstyle=1, use this instead.
