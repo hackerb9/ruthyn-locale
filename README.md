@@ -20,7 +20,7 @@ for an example).
 ### Differences
 
 * The ruthyn.charmap file is the only source that needs to be changed
-  to create a module for a different character set. The old .c and .h
+  to create modules for different character sets. The old .c and .h
   files have been removed as they are now automatically generated.
   
 * The module can be dynamically loaded by calling GNU glibc's
@@ -31,7 +31,10 @@ for an example).
 
 * Strings can be dynamically generated, not just hardcoded literals.[^†]
 
-* Can use `iconv` to convert files bidirectionally.
+* Can use the POSIX standard `iconv` program to convert files
+  bidirectionally or as a filter in a pipeline to convert Unicode to
+  the character set. There is no need to compile a gconv module at all
+  as iconv can read charmap files directly.
 
 [^†]: Requires setting an environment variable: `LANG=ruthyn`.
 	Additionally, If the module is not installed in the system
@@ -41,30 +44,42 @@ for an example).
 
 ## Installation
 
-To compile and install the module issue the following commands from the directory containing the source:
+First: Do you really need to install? The charmap file can be used as
+is with iconv, no installation required. See Usage below.
+
+With that out of the way, installation is a piece of cake:
 
 ```bash
 make
-make install
+sudo make install
 ```
 
-By default the module gets installed to the system directory (e.g,
-`/usr/lib/$(gcc -dumpmachine)/gconv`). If this is not the preferred
-destination either the `Makefile` needs to be altered to modify the
-`GCONVDIR` variable or the destination must be specified in the
-command line in format:
-
-
-```
-make GCONVDIR=$HOME/.local/lib/gconv install
-```
 To uninstall the module:
 
 ```bash
 make uninstall
 ```
 
-For more customizations see the `Makefile` internal variables and comments.
+### Installation without root access
+
+By default the module gets installed to the system directory (e.g,
+`/usr/lib/$(gcc -dumpmachine)/gconv`). If you do not want to install
+system wide, you can set the `GCONV_PATH` variable to any directory when
+installing or uninstalling:
+
+```
+export GCONV_PATH=$HOME/.local/lib/gconv
+make  install
+```
+
+Note that you'll need to set the `GCONV_PATH` environment variable to
+the same directory when running programs that use that module.
+
+``` bash
+export GCONV_PATH=$HOME/.local/lib/gconv
+./myprog
+```
+
 
 ## Usage
 
@@ -74,75 +89,111 @@ different benefits.
 All the options perform a "forward mapping", that is, they convert a
 program's output from Unicode to an 8-bit character set.
 
-| Option Name       | Source code as is | No recompile | Dynamic strings | One binary | Compiles w/o files | Runs w/o files | Runs w/o vars | Reverse map | I&O |
-|-------------------|-------------------|--------------|-----------------|------------|--------------------|----------------|---------------|-------------|-----|
-| iconv charmap     | Yes               | Yes          | Yes             | Yes        | Yes                | No             | Yes           | Yes         | No  |
-| fexec-charset     | Maybe             | No           | No              | No         | No                 | Yes            | Yes           | No          | No  |
-| setlocale("name") | Maybe             | Maybe        | Yes             | No         | Yes                | No             | Maybe         | Yes         | Yes |
-| setlocale("")     | Maybe             | Maybe        | Yes             | Yes        | Yes                | No             | Maybe         | Yes         | Yes |
-|                   |                   |              |                 |            |                    |                |               |             |     |
+| Option Name       | Source code as is | No recompile | Dynamic strings | One binary | Compiles w/o files | Runs w/o files | Runs w/o vars | Reverse map | I & O |
+|-------------------|-------------------|--------------|-----------------|------------|--------------------|----------------|---------------|-------------|-------|
+| iconv charmap     | Yes               | Yes          | Yes             | Yes        | Yes                | No             | Yes           | Yes         | No    |
+| fexec-charset     | Maybe             | No           | No              | No         | No                 | Yes            | Yes           | No          | No    |
+| setlocale("")     | Maybe             | Yes          | Yes             | Yes        | Yes                | No             | Maybe         | Yes         | Yes   |
+| setlocale("name") | Maybe             | Maybe        | Yes             | No         | Yes                | No             | *Root*        | Yes         | Yes   |
 
-* Can use existing source code as it is, no modifications required.
-* No recompilation necessary; can use existing binaries.
-* Can output any string of text, not just hardcoded string literals.
-* A single binary can output different character sets.
-* Compilation does not require extra files.
-* Running does not require extra files.
-* Running does not require special environment variables. "Root" means
-  that special environment variables are necessary unless the user has
-  root access to install into the system directories.
-* Can reverse the mapping so that a program which uses an 8-bit code
+
+
+* **Source code as is**: Can use existing source code as it is, no modifications required.
+* **No recompile**: No recompilation necessary; can use existing binaries.
+* **Dynamic strings**: Can output any string of text, not just hardcoded string literals.
+* **One binary**: A single executable binary can output different character sets.
+* **Compiles w/o files**: Compilation does not require extra files.
+* **Runs w/o files**: Running does not require extra files.
+* **Runs w/o vars**: Running does not require special environment
+  variables such as `LANG` or `GCONV_PATH`. 
+* **Reverse map**: Can reverse the mapping so that a program which uses an 8-bit code
   internally will instead output Unicode.
-* A program can simultaneously use both input (reverse mapping) and
-  output (forward mapping).
+* **I & O**: A program can simultaneously use both input (mapping from
+  8-bit character set to Unicode) and output (Unicode to 8-bit
+  character set).
+* *Root* means "YES" if the user has root access to install
+  into the system directories, 
 
 
 
 
 ### Option 0: iconv -t ./ruthyn.charmap
-The simplest usage is to pipe the output from a program that emits
-Unicode into `iconv`, which can read the charmap file directly and
-convert the output to RUTHYN. 
-
-The only file needed is ruthyn.charmap. The gconv module is not used. 
-
 ```bash
 some_unicode_program | iconv -t ./ruthyn.charmap
 ```
 
+The simplest usage is as a pipeline filter using iconv. This has the
+benefit of convenience because it does not require compiling anything.
+For example:
+
+``` bash
+some_unicode_program | iconv -t ./ruthyn.charmap > /dev/lcd
+
+```
+
+The only file needed is ruthyn.charmap. The gconv module is not used. 
+
+The downside is that the charmap file must be explicitly invoked
+whenever the program is run. 
+
 <ul>
 
-**Important note!** iconv only reads charmap files if they contain at
+**Tip:** iconv only reads charmap files if they contain at
 least one slash ('/'). 
 
 </ul>
 
 
 ## Option 1: gcc -fexec-charset=ruthyn 
-To get the source compiled with desired custom code page used for
-string literals coding the following command line can be used as an
-example:
+
+After installing the gconv module, you may compile a program's C
+source code so that it outputs text from literal strings in a custom
+code page.
 
 ```bash
-GCONV_PATH=../gconv gcc -fexec-charset=ruthyn -c -o main.o main.c
+gcc -fexec-charset=ruthyn -c -o main.o main.c
 ```
 
-where `../gconv` is the directory the custom module is installed in
-and `ruthyn` is the name or alias of the custom code page implemented
-by the module.
+Where `ruthyn` is the name or alias of the custom code page
+implemented by the module. If you have installed the module in a
+non-default directory, you must also set `GCONV_PATH` to the same
+directory. For example, `GCONV_PATH=~/.local/lib/gconv gcc -fexec...`.
 
-Note that when compiling this way, the gconv files are _not_ needed at
-runtime, only compilation. Also note that the C file should not use
-setlocale nor wide characters.
+When compiling this way, the gconv files are needed during
+compilation, but do _not_ need to be installed on the machine that
+will be running the binary.
+
+
+Note that the C source must embed the Unicode text as plain C literal
+strings and should not use setlocale nor wide characters. 
+
+The benefit of this method is that the resulting executable does not
+require any external files. The drawback is inflexibility: any strings
+which need to be printed in ruthyn must be hardcoded in the C program.
+Also, this method can only convert from unicode to ruthyn, not
+vice-versa.
 
 #### Example source code
 
-Please see the file [ruthyn-example.c](ruthyn-example.c) for a program
-with literal strings encoded in UTF-8 that output as the custom code
-page when compiled as described above. You may use `make test` to
-compile the example and run it.
+Please see the file [ruthyn-example.c](examples/ruthyn-example.c) in
+the examples directory for a program with literal strings encoded in
+UTF-8 that output as the custom code page when compiled as described
+above. You may use `make test` to compile the example and run it.
 
-### Option 2: setlocale(LC_CTYPE,"name")
+### Option 2: setlocale(LC_CTYPE,"")
 
-### Option 3: setlocale(LC_CTYPE,"")
+Install the gconv module systemwide using 'make install', so ruthyn
+can be used automatically with (almost) any program without having to
+recompile.
 
+	 export LANG=ruthyn
+	 some_unicode_program > output-to-hd44780
+
+XXX benefits
+XXX costs
+
+
+### Option 3: setlocale(LC_CTYPE,"name")
+
+Similar to option 2, but hardcoded to the specific character set. 
+[XXX fill this in; why do this at all? avoid LANG variable]. 
