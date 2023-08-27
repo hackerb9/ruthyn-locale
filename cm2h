@@ -76,18 +76,27 @@ $1=="END" && $2=="CHARMAP" { incharmap=0; next; }
 
 incharmap==1 {
     # Read each Unicode character (in hexadecimal) and
-    # the corresponding byte sequence (also in hex), and output both,
-    # sorted by Unicode.
+    # the corresponding byte sequence (in hex, dec, oct), 
+    # and output both as hex, sorted by Unicode.
+    
     # BUG: Does not handle mnemonic,ds symbolnames.
-    # BUG: Does not handle /d for decimal input, nor / for octal.
+    # BUG: Does not handle more than one byte.
+    # BUG: Does not handle ... or .. ranges.
 
     # Look for hex in $1 (like <U000E01EF>)
     if (! match($1, /<U([0-9A-F]+)>/, matcharray)) { next; }
     ucsidx = toupper(matcharray[1]);
 
-    # Look for hex in $2 (like /xf3/xa0/x87/xaf -> a[1]=f3)
-    patsplit($2, a, /[0-9A-F]+/);
-    code = tolower(a[1]);
+    # $2 is a string of bytes in base 16, 10, or 8 (\xFF, \d255, or \377)
+    # Look for digits in $2 (like /xf3/xa0/x87/xaf -> a[1]=f3)
+    hex = "[" escape_char "]x";
+    dec = "[" escape_char "]d";
+    oct = "[" escape_char "]";
+    gsub(hex, " 0x",$2);
+    gsub(dec, " ",  $2);
+    gsub(oct, " 0", $2);
+    patsplit($2, a, /[0-9A-Fx]+/);
+    code = sprintf("%02x", strtonum(a[1]));
 
     if (revmap[code]=="") {
 	/* Use first definition when mapping 8bit -> UCS, ignore others. */
@@ -148,6 +157,7 @@ function add_gapstyle_def() {
     # 8bit-generic.c code is written as wacky C preprocessor macros.
     output = tolower(FILENAME);
     sub(/.charmap/, "", output);
+    sub(/.*\//, "", output);
     output = output "-gapstyle.h";
 
     if (gapstyle)
@@ -226,7 +236,7 @@ function print_from_ucs4_table_gap(    i, u, first, last) {
 function debugarray(a,   i) {
     /* Print out all elements of an array */
     for (i in a) {
-	print i, a[i];
+	print "[" i "] =", a[i] > "/dev/stderr";
     }
     return;
 }
