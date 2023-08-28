@@ -121,7 +121,7 @@ module: $(objbase).so
 .PHONY: clean cleanish uninstall install
 .PHONY: install-gconv-modules install-charmap
 .PHONY: uninstall-gconv-modules uninstall-charmap
-.PHONY: test test-multi test-l1 test-identity test-all
+.PHONY: test test-locale test-multi test-l1 test-identity test-all
 
 install: $(objbase).so install-gconv-modules
 	$(INSTALL) "$(GCONVDIR)" "$(objbase).so"
@@ -169,17 +169,40 @@ clean: cleanish
 ###############################################################################
 # Various tests. 'make test-all' runs all tests.
 ###############################################################################
-test:
+test:	test-iconv-charmap
+
+
+test-iconv-charmap:	tests/testdata/$(CODEPAGE)..UTF-8
+# XXXX todo: wrap this in a shell script.
+	@echo -n "Testing iconv to $(CHARMAP): "
+	@bash -c "cmp <(iconv -t ./$(CHARMAP) tests/testdata/$(CODEPAGE)..UTF-8) \
+		 tests/testdata/$(CODEPAGE)" \
+	    && echo "PASSED" || echo "FAILED"
+	@echo -n "Testing iconv from $(CHARMAP): "
+	@bash -c  "cmp -s <(iconv -f ./$(CHARMAP) tests/testdata/$(CODEPAGE)) \
+		 tests/testdata/$(CODEPAGE)..UTF-8"  \
+	    && echo "PASSED" || echo "NOT INVERTIBLE (okay)"
+	cat tests/testdata/$(CODEPAGE)-sample.u8 \
+		| iconv -t ./$(CHARMAP) \
+		| iconv -f ./$(CHARMAP) \
+
+test-locale:			# Is module in /etc/locale.gen? 
+	@GCONV_PATH=$(GCONVDIR) tests/test-locale.sh $(CODEPAGE)
+
+test-alias:			# Is module in /etc/locale.alias? 
+	@GCONV_PATH=$(GCONVDIR) tests/test-locale.sh $(ALIAS)
+
+test-utf8:	test-locale
 	@echo
 	@echo "TESTING ROUNDTRIP TO UTF-8 AND BACK..."
 	GCONV_PATH=$(GCONVDIR) tests/test-u8.sh $(CODEPAGE)
 
-test-multi:
+test-multi:	test-locale
 	@echo
 	@echo "TESTING MANY-TO-ONE MAPPING..."
 	GCONV_PATH=$(GCONVDIR) tests/many-to-one.awk $(CHARMAP)
 
-test-l1:
+test-l1:	test-locale
 	@echo
 	@echo "TESTING LATIN-1 CHARACTERS + TRANSLITERATION..."
 	export GCONV_PATH=$(GCONVDIR); \
@@ -191,7 +214,7 @@ test-l1:
 # glibcstubs! However, compiling using the full glibc source tree
 # works fine. The difference appears to be something we're
 # #include'ing from sysdep.h. See tests/glibcmake.sh.
-test-identity:
+test-identity:	test-locale
 	@echo
 	@echo "TESTING IDENTITY FUNCTION ..."
 	echo "Hello" \
