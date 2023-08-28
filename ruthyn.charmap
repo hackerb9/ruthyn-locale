@@ -3,6 +3,7 @@
 <escape_char> /
 % alias RUTHYN-8
 % alias RUSYN-8
+% alias RUTHYN
 
 % source: Created by hackerb9 based on the data from
 % 	  https://github.com/martynet/ruthyn-hd44780 for 
