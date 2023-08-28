@@ -5,10 +5,10 @@ main() {
     
     if ! LANG=$loc islocalevalid; then
 	if ! LANG=en_US.$loc islocalevalid; then
-	    echo "Error: Locale '$loc' not installed" >&2
+	    echo "Error: Locale '$loc' not installed"
 	    exit 1
 	else
-	    echo -n "Found locale 'en_US.$loc': " >&2
+	    echo -n "Found locale 'en_US.$loc': "
 	    loc=en_US.$loc
 	fi
     else
