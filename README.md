@@ -44,8 +44,10 @@ for an example).
 
 ## Installation
 
+<blockquote>
 First: Do you really need to install? The charmap file can be used as
 is with iconv, no installation required. See Usage below.
+</blockquote>
 
 With that out of the way, installation is a piece of cake:
 
@@ -64,12 +66,11 @@ make uninstall
 
 By default the module gets installed to the system directory (e.g,
 `/usr/lib/$(gcc -dumpmachine)/gconv`). If you do not want to install
-system wide, you can set the `GCONV_PATH` variable to any directory when
+system wide, you can set the `GCONVDIR` variable to any directory when
 installing or uninstalling:
 
 ```
-export GCONV_PATH=$HOME/.local/lib/gconv
-make  install
+make  GCONVDIR=~/.local/lib/gconv  install
 ```
 
 Note that you'll need to set the `GCONV_PATH` environment variable to
@@ -86,34 +87,57 @@ export GCONV_PATH=$HOME/.local/lib/gconv
 There are multiple ways in which these files can be used which offer
 different benefits. 
 
-All the options perform a "forward mapping", that is, they convert a
+0. **iconv charmap**: 
+   * Simplest method. 
+   * Requires piping the output from a program into iconv.
+1. **fexec-charset**: 
+   * Binary can run on a machine without additional files installed.
+   * Most restricted in abilities: literal strings only.
+   * Sufficient for many tasks.
+2. **setlocale("")**: 
+   * Most complex.
+   * Can handle input and output conversion simultaneously.
+   * The "[correct](https://pubs.opengroup.org/onlinepubs/9699919799/functions/setlocale.html)" 
+	 way to use a different character set.
+   * Many programs already use `setlocale` and will magically work.
+   
+All methods support "forward mapping", that is, they convert a
 program's output from Unicode to an 8-bit character set.
+
+### Table of differences between options
 
 | Option Name       | Source code as is | No recompile | Dynamic strings | One binary | Compiles w/o files | Runs w/o files | Runs w/o vars | Reverse map | I & O |
 |-------------------|-------------------|--------------|-----------------|------------|--------------------|----------------|---------------|-------------|-------|
 | iconv charmap     | Yes               | Yes          | Yes             | Yes        | Yes                | No             | Yes           | Yes         | No    |
 | fexec-charset     | Maybe             | No           | No              | No         | No                 | Yes            | Yes           | No          | No    |
-| setlocale("")     | Maybe             | Yes          | Yes             | Yes        | Yes                | No             | Maybe         | Yes         | Yes   |
-| setlocale("name") | Maybe             | Maybe        | Yes             | No         | Yes                | No             | *Root*        | Yes         | Yes   |
+| setlocale("")     | Maybe             | Yes          | Yes             | Yes        | Yes                | No             | *Root*        | Yes         | Yes   |
 
+<details><summary>Click to show table key</summary>
 
-
-* **Source code as is**: Can use existing source code as it is, no modifications required.
-* **No recompile**: No recompilation necessary; can use existing binaries.
-* **Dynamic strings**: Can output any string of text, not just hardcoded string literals.
-* **One binary**: A single executable binary can output different character sets.
-* **Compiles w/o files**: Compilation does not require extra files.
-* **Runs w/o files**: Running does not require extra files.
-* **Runs w/o vars**: Running does not require special environment
-  variables such as `LANG` or `GCONV_PATH`. 
-* **Reverse map**: Can reverse the mapping so that a program which uses an 8-bit code
-  internally will instead output Unicode.
-* **I & O**: A program can simultaneously use both input (mapping from
+* **Source code as is**: 
+  Can use existing source code as it is, no modifications required.
+* **No recompile**: 
+  No recompilation necessary; can use existing binaries.
+* **Dynamic strings**: 
+  Can output any string of text, not just hardcoded string literals.
+* **One binary**: 
+  A single executable binary can output different character sets.
+* **Compiles w/o files**: 
+  Compilation does not require extra files.
+* **Runs w/o files**: 
+  Running does not require extra files.
+* **Runs w/o vars**: 
+  Running does not require special environment variables such as `LANG` or `GCONV_PATH`. 
+* **Reverse map**: 
+  Can reverse the mapping either for input or so that a program which
+  uses an 8-bit code internally will instead output Unicode.
+* **I & O**: 
+  A program can simultaneously use both input (mapping from
   8-bit character set to Unicode) and output (Unicode to 8-bit
   character set).
-* *Root* means "YES" if the user has root access to install
-  into the system directories, 
-
+* "*Root*" means "YES" if the user has root access to install
+  into the system directories, otherwise it means "NO".
+</details>
 
 
 
@@ -143,8 +167,40 @@ least one slash ('/').
 
 </ul>
 
+#### Testing
 
-## Option 1: gcc -fexec-charset=ruthyn 
+Run `make test-iconv-charmap`. That target uses three testdata files
+to confirm that iconv is working correctly with ruthyn.charmap.
+
+<details>
+
+  1. tests/testdata/RUTHYN-HD44780..UTF8
+	 A file containing all characters in the Ruthyn characterset.
+	 Encoded in UTF-8.
+
+  2. tests/testdata/RUTHYN-HD44780
+	 Same as above, but encoded in the Ruthyn characterset.
+
+  3. tests/testdata/RUTHYN-HD44780-sample.u8
+	 A sample presentable to the user to demonstrate functionality.
+	 Encoded in UTF-8.
+
+Note that file 1 can be transformed into file 2, but trying the
+reverse will not be exact. This is because multiple UCS characters can
+map to a single Ruthyn encoding.
+
+For example, both U+0413 and U+0490 are encoded as the byte 0xA1:
+
+	<U0413>		/xA1		% CAPITAL_H (Г)
+	<U0490>		/xA1		% CAPITAL_G (Ґ)
+
+The UCS character listed first in the charmap file will be used when
+mapping in reverse.
+
+</details>
+
+
+### Option 1: gcc -fexec-charset=ruthyn 
 
 After installing the gconv module, you may compile a program's C
 source code so that it outputs text from literal strings in a custom
@@ -197,3 +253,5 @@ XXX costs
 
 Similar to option 2, but hardcoded to the specific character set. 
 [XXX fill this in; why do this at all? avoid LANG variable]. 
+
+
